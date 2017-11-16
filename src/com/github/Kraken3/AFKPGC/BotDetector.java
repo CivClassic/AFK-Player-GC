@@ -7,27 +7,21 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Set;
-import java.util.NavigableSet;
-import java.util.UUID;
-import java.util.TreeMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.ArrayList;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.UUID;
 
-import org.bukkit.BanList;
 import org.bukkit.BanEntry;
+import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-
-import vg.civcraft.mc.cbanman.CBanManagement;
-import vg.civcraft.mc.cbanman.ban.Ban;
-import vg.civcraft.mc.cbanman.ban.BanLevel;
 
 /*
  * Detects likely bots based on movement patterns and lag contributions
@@ -180,7 +174,6 @@ public class BotDetector implements Runnable {
 					AFKPGC.debug("Player ", playerUUID, " is likely offline, skipping for now");
 					continue;
 				} else if (lastActivities.containsKey(playerUUID)) { // threadsafe consistency check.
-					LastActivity la = entry.getValue();
 
 					// Find fresh blood.
 					if (!AFKPGC.immuneAccounts.contains(playerUUID) && !reprieve.containsKey(playerUUID) &&
@@ -395,19 +388,8 @@ public class BotDetector implements Runnable {
 	}
 
 	public static void freeEveryone() {
-		// TODO: When proper plugin-unban-all, use cban directly.
-		//   for now ...
-		boolean useCBan = false;
-		if (AFKPGC.plugin.getServer().getPluginManager().isPluginEnabled("CBanManagement")) {
-			useCBan = true;
-		}
 		for (int i = 0; i < bannedPlayers.size(); i++) {
-			if (useCBan) {
-				CBanManagement.getInstance().unbanPlayer(
-						bannedPlayers.get(i), "afkpgc");
-			} else {
-				banList.pardon(bannedPlayers.get(i));
-			}
+			banList.pardon(bannedPlayers.get(i));
 		}
 		bannedPlayers.clear();
 		banfile.delete();
@@ -430,11 +412,6 @@ public class BotDetector implements Runnable {
     	if (!enableBans) {
     		return;
     	}
-		boolean useCBan = false;
-		if (AFKPGC.plugin.getServer().getPluginManager().isPluginEnabled("CBanManagement")) {
-			AFKPGC.debug("Using CBanManagement");
-			useCBan = true;
-		}
 		Integer banCount = banCounts.get(s.getUUID());
 		if (banCount == null) {
 			banCount = 0;
@@ -454,30 +431,16 @@ public class BotDetector implements Runnable {
 		if (p != null) {
 			LagScanner.unloadChunks(p.getLocation(), scanRadius);
 		}
-
-		if (useCBan) {
-			Ban leBan = new Ban(BanLevel.TEMP, "afkpgc", banMessage, 
-					new Date(currentDate.getTime() + banLength));
-			CBanManagement.getInstance().banPlayer(p, leBan);
-			bannedPlayers.add(s.getName()); // Once proper unban, remove this
-		} else {
-			BanEntry leBan = banList.addBan( s.getName(), banMessage,
-					new Date(currentDate.getTime() + banLength), null); // long ban.
-			if (p != null) {
-				p.kickPlayer(leBan.getReason());
-			}
-			bannedPlayers.add(s.getName());
-			addToBanfile(s.getName());
+		BanEntry leBan = banList.addBan( s.getName(), banMessage,
+				new Date(currentDate.getTime() + banLength), null); // long ban.
+		if (p != null) {
+			p.kickPlayer(leBan.getReason());
 		}
+		bannedPlayers.add(s.getName());
+		addToBanfile(s.getName());
 		AFKPGC.debug("Player ", s.getUUID(), " (", s.getName(), ") banned for ",
 				banLength,"ms, confirmed lag source, incident #", (banCounts.get(s.getUUID()) + 1));
 	}
-    
-    private void giveOutBan(Player p) {
-    	if (p != null) {
-    		giveOutBan(new Suspect(p.getUniqueId(),p.getName(),p.getLocation(),null));
-    	}
-    }
 
 	public static void parseBanlist() {
 		if (banfile == null && !banfile.exists()) {
